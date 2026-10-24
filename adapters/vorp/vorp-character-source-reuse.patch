@@ -1,0 +1,13 @@
+--- a/server/server.lua
++++ b/server/server.lua
+@@ -159,7 +159,9 @@
+ 	end
+ end)
+ 
+-
++AddEventHandler('playerDropped', function()
++    charSelected[source] = nil
++end)
+ 
+ RegisterNetEvent("vorpcharacter:setPlayerCompChange", function(skinValues, compsValues)
+ 	local _source = source

@@ -1,0 +1,64 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Source", "Source", "{C272FFC7-8518-4D9E-A025-8D302DB78FC6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MRedLocal", "src\Mundi.Launcher\Mundi.Launcher.csproj", "{E4352D21-E0B9-4EDE-A582-F5FD293706FA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedMLocalClient", "src\RedMLocalClient\RedMLocalClient.csproj", "{35DAC534-61E2-4A4C-A2BC-429C7964B2A3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedMLocalSetup", "src\RedMLocalSetup\RedMLocalSetup.csproj", "{E45BA20A-DA4A-422C-A9E8-C07C5888F163}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{75EA075F-5D78-4A6C-B2A9-AB64A7D76F4E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Launcher.Tests", "tests\Launcher.Tests\Launcher.Tests.csproj", "{AE2623BE-0014-4EFF-97C8-76139612FA16}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Setup.Tests", "tests\Setup.Tests\Setup.Tests.csproj", "{3F36E7A0-7093-4F33-9237-FF1093EA728A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Desktop.Tests", "tests\Desktop.Tests\Desktop.Tests.csproj", "{EB0F0772-A8DF-4F09-842E-4F0C7EB35F4D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E4352D21-E0B9-4EDE-A582-F5FD293706FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E4352D21-E0B9-4EDE-A582-F5FD293706FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E4352D21-E0B9-4EDE-A582-F5FD293706FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E4352D21-E0B9-4EDE-A582-F5FD293706FA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35DAC534-61E2-4A4C-A2BC-429C7964B2A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35DAC534-61E2-4A4C-A2BC-429C7964B2A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35DAC534-61E2-4A4C-A2BC-429C7964B2A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35DAC534-61E2-4A4C-A2BC-429C7964B2A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E45BA20A-DA4A-422C-A9E8-C07C5888F163}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E45BA20A-DA4A-422C-A9E8-C07C5888F163}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E45BA20A-DA4A-422C-A9E8-C07C5888F163}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E45BA20A-DA4A-422C-A9E8-C07C5888F163}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AE2623BE-0014-4EFF-97C8-76139612FA16}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AE2623BE-0014-4EFF-97C8-76139612FA16}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AE2623BE-0014-4EFF-97C8-76139612FA16}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AE2623BE-0014-4EFF-97C8-76139612FA16}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F36E7A0-7093-4F33-9237-FF1093EA728A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F36E7A0-7093-4F33-9237-FF1093EA728A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F36E7A0-7093-4F33-9237-FF1093EA728A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F36E7A0-7093-4F33-9237-FF1093EA728A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EB0F0772-A8DF-4F09-842E-4F0C7EB35F4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EB0F0772-A8DF-4F09-842E-4F0C7EB35F4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EB0F0772-A8DF-4F09-842E-4F0C7EB35F4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EB0F0772-A8DF-4F09-842E-4F0C7EB35F4D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E4352D21-E0B9-4EDE-A582-F5FD293706FA} = {C272FFC7-8518-4D9E-A025-8D302DB78FC6}
+		{35DAC534-61E2-4A4C-A2BC-429C7964B2A3} = {C272FFC7-8518-4D9E-A025-8D302DB78FC6}
+		{E45BA20A-DA4A-422C-A9E8-C07C5888F163} = {C272FFC7-8518-4D9E-A025-8D302DB78FC6}
+		{AE2623BE-0014-4EFF-97C8-76139612FA16} = {75EA075F-5D78-4A6C-B2A9-AB64A7D76F4E}
+		{3F36E7A0-7093-4F33-9237-FF1093EA728A} = {75EA075F-5D78-4A6C-B2A9-AB64A7D76F4E}
+		{EB0F0772-A8DF-4F09-842E-4F0C7EB35F4D} = {75EA075F-5D78-4A6C-B2A9-AB64A7D76F4E}
+	EndGlobalSection
+EndGlobal

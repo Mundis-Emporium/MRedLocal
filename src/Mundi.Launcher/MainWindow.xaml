@@ -1,0 +1,286 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework" x:Class="Mundi.Launcher.MainWindow" Title="MRedLocal" Icon="{StaticResource MundiMark}" Width="1220" Height="820" MinWidth="1020" MinHeight="710" WindowStartupLocation="CenterScreen" Background="{StaticResource Base}" Foreground="{StaticResource Ink}" FontFamily="Segoe UI" WindowStyle="None" ResizeMode="CanResize" UseLayoutRounding="True" SnapsToDevicePixels="True" TextOptions.TextFormattingMode="Display">
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="52" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False"/>
+  </shell:WindowChrome.WindowChrome>
+  <Border BorderBrush="#383838" BorderThickness="1">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="52"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="88"/>
+      </Grid.RowDefinitions>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="226"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <Border Grid.RowSpan="3" Background="#101010" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0"/>
+      <Rectangle Grid.Row="1" Fill="{StaticResource Accent}" Width="23" Height="475" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,12,-7,0" Opacity="0.7" IsHitTestVisible="False">
+        <Rectangle.OpacityMask><ImageBrush ImageSource="{StaticResource InkEdge}" Stretch="Fill"/></Rectangle.OpacityMask>
+      </Rectangle>
+      <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Margin="26,0" VerticalAlignment="Center">
+        <TextBlock Text="MRed" Foreground="{StaticResource AccentText}" FontFamily="Georgia" FontWeight="SemiBold" FontSize="15"/>
+        <TextBlock Text="Local" FontFamily="Georgia" FontWeight="SemiBold" FontSize="15"/>
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+        <Button Style="{StaticResource IconButton}" Content="─" ToolTip="Minimize" Click="Minimize_Click" Width="48"/>
+        <Button Style="{StaticResource IconButton}" Content="□" ToolTip="Maximize" Click="Maximize_Click" Width="48"/>
+        <Button Style="{StaticResource IconButton}" Content="✕" ToolTip="Close" Click="Close_Click" Width="48"/>
+      </StackPanel>
+      <Grid Grid.Row="1">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="166"/>
+          <RowDefinition Height="*"/>
+          <RowDefinition Height="90"/>
+        </Grid.RowDefinitions>
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+          <Image Source="{StaticResource MundiMark}" Width="92" Height="92" Margin="0,0,0,10"/>
+          <TextBlock Text="LOCAL TESTING" FontFamily="Georgia" FontSize="12" Foreground="{StaticResource Muted}" HorizontalAlignment="Center"/>
+        </StackPanel>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,12,0,0">
+        <StackPanel>
+          <RadioButton x:Name="SessionNav" Style="{StaticResource Nav}" Content="Session" Tag="Session" IsChecked="True" Checked="Navigation_Checked"/>
+          <RadioButton x:Name="DisplayNav" Style="{StaticResource Nav}" Content="Display" Tag="Display" Checked="Navigation_Checked"/>
+          <RadioButton x:Name="GraphicsNav" Style="{StaticResource Nav}" Content="Graphics" Tag="Graphics" Checked="Navigation_Checked"/>
+          <RadioButton x:Name="ServerNav" Style="{StaticResource Nav}" Content="Server setup" Tag="Server" Checked="Navigation_Checked"/>
+          <RadioButton x:Name="FilesNav" Style="{StaticResource Nav}" Content="Installation" Tag="Files" Checked="Navigation_Checked"/>
+        </StackPanel>
+        </ScrollViewer>
+        <StackPanel Grid.Row="2" Margin="28,0" VerticalAlignment="Center">
+          <TextBlock Text="Mundi’s Emporium" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,8"/>
+          <StackPanel Orientation="Horizontal">
+            <Button Style="{StaticResource IconButton}" ToolTip="Discord support" AutomationProperties.Name="Discord support" Click="Discord_Click" Padding="0,8" Margin="0,0,18,0">
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="20"/><ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Viewbox Width="20" Height="17" VerticalAlignment="Center">
+                <Path Fill="{StaticResource Ink}" Data="M20.317 4.37 A19.79 19.79 0 0 0 15.432 2.854 A13.784 13.784 0 0 0 14.806 4.13 A18.27 18.27 0 0 0 9.196 4.13 A13.08 13.08 0 0 0 8.564 2.854 A19.737 19.737 0 0 0 3.675 4.373 C.533 9.034 -.319 13.579 .107 18.06 A19.9 19.9 0 0 0 6.1 21.09 A14.575 14.575 0 0 0 7.385 19.007 A12.875 12.875 0 0 1 5.361 18.021 C5.531 17.897 5.697 17.768 5.857 17.636 C9.76 19.456 14.001 19.456 17.858 17.636 C18.02 17.768 18.186 17.897 18.355 18.021 A13.2 13.2 0 0 1 16.326 19.008 A14.33 14.33 0 0 0 17.61 21.09 A19.85 19.85 0 0 0 23.608 18.06 C24.108 12.865 22.752 8.361 20.317 4.37 Z M8.02 15.29 C6.846 15.29 5.884 14.214 5.884 12.898 C5.884 11.582 6.825 10.503 8.02 10.503 C9.215 10.503 10.176 11.582 10.155 12.898 C10.157 14.214 9.215 15.29 8.02 15.29 Z M15.697 15.29 C14.523 15.29 13.562 14.214 13.562 12.898 C13.562 11.582 14.502 10.503 15.697 10.503 C16.892 10.503 17.854 11.582 17.833 12.898 C17.833 14.214 16.892 15.29 15.697 15.29 Z"/>
+                </Viewbox>
+                <TextBlock Grid.Column="2" Text="Discord" FontSize="12" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+            <Button Style="{StaticResource IconButton}" ToolTip="Tebex store" AutomationProperties.Name="Tebex store" Click="Store_Click" Padding="0,8">
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="20"/><ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Image Source="Assets/tebex-mark.png" Width="20" Height="24" Stretch="Uniform" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="Tebex" FontSize="12" VerticalAlignment="Center"/>
+              </Grid>
+            </Button>
+          </StackPanel>
+        </StackPanel>
+      </Grid>
+      <ScrollViewer Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="42,22,42,28">
+        <Grid>
+          <StackPanel x:Name="SessionPage">
+            <TextBlock Text="Local session" Style="{StaticResource Heading}"/>
+            <Image Style="{StaticResource InkDivider}"/>
+            <TextBlock Text="Two clients. Separate characters." Style="{StaticResource Hint}" Margin="0,0,0,28"/>
+            <Border Style="{StaticResource Panel}" Padding="0,18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                  <TextBlock Text="MAIN CLIENT" Style="{StaticResource Eyebrow}"/>
+                  <TextBlock x:Name="MainStateText" Text="Checking…" FontSize="22" FontFamily="Georgia" Margin="0,8,0,5"/>
+                  <TextBlock Text="Your usual RedM installation" Style="{StaticResource Hint}"/>
+                </StackPanel>
+                <Button x:Name="OpenMainButton" Content="Open RedM  ↗" Grid.Column="1" VerticalAlignment="Center" Click="OpenMain_Click"/>
+              </Grid>
+            </Border>
+            <Image Source="{StaticResource InkRule}" Height="27" Stretch="Fill" Opacity="0.8" Margin="0,2,0,2" IsHitTestVisible="False"/>
+            <Border Style="{StaticResource Panel}" Margin="0,0,0,20" Padding="0,18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                  <TextBlock Text="SECOND CLIENT" Style="{StaticResource Eyebrow}"/>
+                  <TextBlock x:Name="SecondStateText" Text="Not started" FontSize="22" FontFamily="Georgia" Margin="0,8,0,5"/>
+                  <TextBlock x:Name="SessionSummaryText" Text="960 × 540 · Windowed" Style="{StaticResource Hint}"/>
+                </StackPanel>
+                <Button Grid.Column="1" Content="Change settings  ↗" VerticalAlignment="Center" Click="GoDisplay_Click"/>
+              </Grid>
+            </Border>
+            <TextBlock Text="CONNECT TO" Style="{StaticResource Eyebrow}" Margin="0,0,0,9"/>
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBox x:Name="EndpointBox" Text="127.0.0.1:30120" IsReadOnly="True" ToolTip="Detected from the selected server configuration" LostFocus="Settings_LostFocus"/>
+              <Button Grid.Column="1" Content="Check server" Margin="10,0,0,0" Click="CheckServer_Click"/>
+            </Grid>
+            <CheckBox x:Name="AutoConnectBox" Content="Connect the second client automatically" IsChecked="True" Click="Settings_Changed" Margin="0,15,0,17"/>
+            <Grid>
+              <TextBlock x:Name="ServerReachabilityText" Text="Checking local server…" Style="{StaticResource Hint}"/>
+              <Button Content="Server setup  ↗" Style="{StaticResource IconButton}" HorizontalAlignment="Right" Padding="0" Click="GoServer_Click"/>
+            </Grid>
+          </StackPanel>
+          <StackPanel x:Name="DisplayPage" Visibility="Collapsed">
+            <TextBlock Text="Display" Style="{StaticResource Heading}"/>
+            <Image Style="{StaticResource InkDivider}"/>
+            <TextBlock Text="Choose where the second client opens." Style="{StaticResource Hint}" Margin="0,0,0,25"/>
+            <Border Style="{StaticResource Panel}" Padding="0,18">
+              <StackPanel>
+                <TextBlock Text="YOUR DISPLAYS" Style="{StaticResource Eyebrow}"/>
+                <Canvas x:Name="MonitorCanvas" Height="138" Margin="0,18,0,5"/>
+                <TextBlock x:Name="MonitorHint" Style="{StaticResource Hint}" HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+            <TextBlock Text="Display" Margin="0,24,0,9"/>
+            <ComboBox x:Name="MonitorBox" SelectionChanged="Display_Changed"/>
+            <Grid Margin="0,22,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="22"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock Text="Resolution" Margin="0,0,0,9"/>
+                <ComboBox x:Name="ResolutionBox" SelectionChanged="Display_Changed"/>
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Text="Window mode" Margin="0,0,0,9"/>
+                <ComboBox x:Name="WindowModeBox" SelectionChanged="Display_Changed"/>
+              </StackPanel>
+            </Grid>
+            <Grid x:Name="CustomResolutionRow" Visibility="Collapsed" Margin="0,16,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="22"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <TextBox x:Name="WidthBox" LostFocus="Settings_LostFocus"/>
+              <TextBox x:Name="HeightBox" Grid.Column="2" LostFocus="Settings_LostFocus"/>
+            </Grid>
+            <Grid Margin="0,21,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="22"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock Text="VSync" Margin="0,0,0,9"/>
+                <ComboBox x:Name="VSyncBox" SelectionChanged="Display_Changed"/>
+              </StackPanel>
+            </Grid>
+            <CheckBox x:Name="LowerPriorityBox" Content="Give the main client priority" IsChecked="True" Click="Settings_Changed" Margin="0,23,0,0"/>
+            <TextBlock Text="The main client keeps its current display settings." Style="{StaticResource Hint}" Margin="0,13,0,0"/>
+          </StackPanel>
+          <StackPanel x:Name="GraphicsPage" Visibility="Collapsed">
+            <TextBlock Text="Graphics" Style="{StaticResource Heading}"/>
+            <Image Style="{StaticResource InkDivider}"/>
+            <TextBlock Text="Settings for the second client." Style="{StaticResource Hint}" Margin="0,0,0,24"/>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,26">
+              <Button Content="Low" Tag="Low" Click="Preset_Click" Margin="0,0,8,0" MinWidth="88"/>
+              <Button Content="Balanced" Tag="Balanced" Click="Preset_Click" Margin="0,0,8,0" MinWidth="105"/>
+              <Button Content="High" Tag="High" Click="Preset_Click" Margin="0,0,8,0" MinWidth="88"/>
+              <Button Content="Use main settings" Tag="Main" Click="Preset_Click"/>
+            </StackPanel>
+            <Grid x:Name="GraphicsGrid"/>
+            <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Margin="0,26,0,0" Padding="0,18,0,0">
+              <TextBlock Text="Your original graphics file is backed up before launch and restored when the second client closes." Style="{StaticResource Hint}"/>
+            </Border>
+          </StackPanel>
+          <StackPanel x:Name="ServerPage" Visibility="Collapsed">
+            <TextBlock Text="Server setup" Style="{StaticResource Heading}"/>
+            <Image Style="{StaticResource InkDivider}"/>
+            <TextBlock Text="Set up separate characters on your local server." Style="{StaticResource Hint}" Margin="0,0,0,25"/>
+            <TextBlock Text="Local server folder" Margin="0,0,0,9"/>
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBox x:Name="ServerFolderBox" IsReadOnly="True"/>
+              <Button Content="Browse" Grid.Column="1" Margin="10,0,0,0" Click="BrowseServer_Click"/>
+            </Grid>
+            <Border Style="{StaticResource Panel}" Margin="0,22,0,0">
+              <StackPanel>
+                <TextBlock x:Name="FrameworkText" Text="Choose your server" FontSize="21" FontFamily="Georgia"/>
+                <TextBlock x:Name="SetupStatusText" Text="Select the folder containing your local server or its server.cfg." Style="{StaticResource Hint}" Margin="0,9,0,20"/>
+                <StackPanel Orientation="Horizontal">
+                  <Button x:Name="SetupButton" Content="Set up local testing" Style="{StaticResource Primary}" Click="Setup_Click" IsEnabled="False"/>
+                  <Button Content="Check again" Margin="10,0,0,0" Click="InspectServer_Click"/>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <TextBlock Text="Setup keeps a backup of every file it changes. Your main character and inventory stay with their existing profile." Style="{StaticResource Hint}" Margin="0,19,0,22"/>
+            <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="0,19,0,0">
+              <StackPanel>
+                <Grid>
+                  <TextBlock Text="Server controls" FontSize="16" FontWeight="SemiBold"/>
+                  <Button x:Name="RemoveSetupButton" Content="Remove setup" Style="{StaticResource IconButton}" HorizontalAlignment="Right" Padding="0" Click="RemoveSetup_Click" IsEnabled="False"/>
+                </Grid>
+                <TextBlock Text="Choose FXServer.exe to start the server from here." Style="{StaticResource Hint}" Margin="0,9,0,12"/>
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBox x:Name="ServerExeBox" IsReadOnly="True"/>
+                  <Button Content="Browse" Grid.Column="1" Margin="10,0,0,0" Click="BrowseServerExe_Click"/>
+                </Grid>
+                <Button x:Name="StartServerButton" Content="Start server" Click="StartServer_Click" HorizontalAlignment="Left" Margin="0,13,0,0"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+          <StackPanel x:Name="FilesPage" Visibility="Collapsed">
+            <TextBlock Text="Installation" Style="{StaticResource Heading}"/>
+            <Image Style="{StaticResource InkDivider}"/>
+            <TextBlock Text="Keep the two RedM installations separate." Style="{StaticResource Hint}" Margin="0,0,0,26"/>
+            <TextBlock Text="Main RedM" Margin="0,0,0,9"/>
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBox x:Name="PrimaryPathBox" IsReadOnly="True"/>
+              <Button Content="Browse" Grid.Column="1" Tag="Primary" Margin="10,0,0,0" Click="BrowseRedM_Click"/>
+            </Grid>
+            <TextBlock Text="Second RedM" Margin="0,23,0,9"/>
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBox x:Name="SecondaryPathBox" IsReadOnly="True"/>
+              <Button Content="Browse" Grid.Column="1" Tag="Secondary" Margin="10,0,0,0" Click="BrowseRedM_Click"/>
+            </Grid>
+            <StackPanel Orientation="Horizontal" Margin="0,16,0,28">
+              <Button x:Name="InstallRedMButton" Content="Install a second copy" Click="InstallRedM_Click"/>
+              <Button Content="Find installations" Click="Detect_Click" Margin="10,0,0,0"/>
+            </StackPanel>
+            <TextBlock Text="Install a second copy into an empty folder. The normal RedM installer will ask for your existing game installation." Style="{StaticResource Hint}" Margin="0,0,0,25"/>
+            <Border Style="{StaticResource Panel}">
+              <StackPanel>
+                <TextBlock Text="Graphics recovery" FontSize="20" FontFamily="Georgia"/>
+                <TextBlock x:Name="RecoveryText" Text="No graphics backup needs restoring." Style="{StaticResource Hint}" Margin="0,9,0,17"/>
+                <StackPanel Orientation="Horizontal">
+                  <Button Content="Restore main settings" Click="Restore_Click"/>
+                  <Button Content="Open backup folder" Click="OpenBackups_Click" Margin="10,0,0,0"/>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <Button Content="Open local settings folder" Style="{StaticResource IconButton}" Padding="0,10" Margin="0,13,0,0" HorizontalAlignment="Left" Click="OpenSettings_Click"/>
+          </StackPanel>
+        </Grid>
+      </ScrollViewer>
+      <Border Grid.Row="2" Grid.Column="1" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Background="#191919" Padding="30,14">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel VerticalAlignment="Center" Margin="0,0,20,0">
+            <TextBlock x:Name="FooterTitle" Text="Ready when you are" FontWeight="SemiBold"/>
+            <TextBlock x:Name="FooterMessage" Text="Load your main character before starting the second client." Style="{StaticResource Hint}" Margin="0,4,0,0"/>
+            <ProgressBar x:Name="LaunchProgressBar" Height="2" Margin="0,8,0,0" IsIndeterminate="True" Foreground="{StaticResource Accent}" Background="#353535" Visibility="Collapsed"/>
+          </StackPanel>
+          <Button x:Name="LaunchButton" Grid.Column="1" Content="Launch second client  →" Style="{StaticResource Primary}" VerticalAlignment="Center" MinWidth="225" Click="Launch_Click"/>
+        </Grid>
+      </Border>
+    </Grid>
+  </Border>
+</Window>

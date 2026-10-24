@@ -1,0 +1,56 @@
+{
+  "format": 1,
+  "adapter": "RSG core 2.3.10 + multicharacter 2.3.5 local two player",
+  "version_file": "rsg-core/fxmanifest.lua",
+  "required_version": "version '2.3.10'",
+  "files": [
+    {
+      "path": "rsg-core/fxmanifest.lua",
+      "before_sha256": "77bec3f37acc2f0ce63362f0d7d3cdc4a34012e8a5150e8dffd245d088eb4e6b",
+      "after_sha256": "133f773298aa881d109f4d619b22caa5e324793c0a3f295a490f34dd5a9e5c15"
+    },
+    {
+      "path": "rsg-core/server/events.lua",
+      "before_sha256": "26e7d9429b23c74bfa18e74b780e783b749e81d4b11d5838c0cbee82b56ecca8",
+      "after_sha256": "b31d98f6fc84eb5c723a943f4df4bee2577f6eede833181e674f1639b4a61927"
+    },
+    {
+      "path": "rsg-core/server/functions.lua",
+      "before_sha256": "19b63f2a90f939dfb8dd5ab1e8ad81b282fbeb2b5e206dfd2c567f2050d2c95a",
+      "after_sha256": "d443da339ab02bc9cf091f3197b51499df1cdffaaecd6c8c7f7f27b5e9673b91"
+    },
+    {
+      "path": "rsg-core/server/local_sessions/identity.lua",
+      "before_sha256": null,
+      "after_sha256": "61799b32463b4e444efeb119423951f93a858d5caaf7ca693ca328a9df34cf2a"
+    },
+    {
+      "path": "rsg-core/server/player.lua",
+      "before_sha256": "f5a3e609468af0a394b3af211e44240373cab54072291654882397392f52ef6f",
+      "after_sha256": "9a30ae254ca444293b36cbe30a4bb4996d83d10bcd58577846c2a30e66283b52"
+    },
+    {
+      "path": "rsg-multicharacter/server/main.lua",
+      "before_sha256": "211005aaa3e85d1f708a409d3eb8fc360dedc45b17f2a4393b91c9caf5214d59",
+      "after_sha256": "41a2cfdc93f22f89a84a688b006a22009472e78d9e24d1f728eeace5b970967c"
+    }
+  ],
+  "read_only": [
+    {
+      "path": "rsg-multicharacter/fxmanifest.lua",
+      "sha256": "fc5b5732515df8ea89443178d5d210fb7cef322b06e91519b1aee87157c6f9b6"
+    },
+    {
+      "path": "rsg-inventory/fxmanifest.lua",
+      "sha256": "d63446aa19264405a402051e656490f45160c95c6ca14fdf81d004a8a457bfe8"
+    },
+    {
+      "path": "rsg-inventory/server/exports.lua",
+      "sha256": "69e6692392e90c1c9dbab00f057239b21e39ff7bd7bf9fda59d0fa4181604ef1"
+    },
+    {
+      "path": "rsg-core/server/moneyitems.lua",
+      "sha256": "c80770d56a9945b2e1479708167d550af2334bafd13540473e1b7821ebf12541"
+    }
+  ]
+}

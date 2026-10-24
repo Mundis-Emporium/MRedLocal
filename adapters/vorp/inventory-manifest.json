@@ -1,0 +1,79 @@
+{
+  "format": 1,
+  "adapter": "VORP inventory local identity dependency baseline",
+  "files": [],
+  "read_only": [
+    {
+      "path": "fxmanifest.lua",
+      "sha256": "a68263a5c2e3286fc06df3c08950dade83bda95d036fc4a3c47241350c8dd573"
+    },
+    {
+      "path": "server/controllers/inventoryApiController.lua",
+      "sha256": "ff43acb45d9bbb60ee8dc7218a3b4555572bbf82294c4cf10d8674829cd19400"
+    },
+    {
+      "path": "server/controllers/inventoryController.lua",
+      "sha256": "4d7e6f301bd37dc0c06c8374ef4aee23b6525e3a4797bb06c87ee209b073c413"
+    },
+    {
+      "path": "server/models/customInventory.lua",
+      "sha256": "35057abf06e2091c4473af15ee4220fef1b57454c121ea3adcba5dd5f3ec9913"
+    },
+    {
+      "path": "server/models/WeaponClass.lua",
+      "sha256": "1b5cc743b3174ea680ad959d80eaf71a365c1c566542f90855f80eeee3a13aa3"
+    },
+    {
+      "path": "server/respawn.lua",
+      "sha256": "77d39841bb99ef1d57fc1aa729e72bd72bbd50eaa22e2e79c9712cb12f7189a5"
+    },
+    {
+      "path": "server/server.lua",
+      "sha256": "ae3ad1144cbb9b3703565b1b9a8025f5785e25ac6c557ed78717d5e0f0e79824"
+    },
+    {
+      "path": "server/services/DbService.lua",
+      "sha256": "bd6110a51df21e078af5fcdce7b8bad36d5d614c175e930dabc162ae2b606e1c"
+    },
+    {
+      "path": "server/services/dbUpdater.lua",
+      "sha256": "55d0a4d2c1a12e116dcdcaa56dfcc209d09dc3b0eda7467f420269145f368147"
+    },
+    {
+      "path": "server/services/inventoryApiService.lua",
+      "sha256": "2ae4a097b215aa27fda9656cd72e27e68ea0485fa1bcc958edbc8e6c5519fc1d"
+    },
+    {
+      "path": "server/services/inventoryService.lua",
+      "sha256": "0ea72e6fe766a41b7b24e2d48a060ba96d5e36881ea15daf990978e16561aa7a"
+    },
+    {
+      "path": "server/services/itemsDatabase.lua",
+      "sha256": "a3cd212d8269d58337a8024f43c815867886ed75dbde9d5eb300049deb291224"
+    },
+    {
+      "path": "server/services/UtiliyService.lua",
+      "sha256": "a73a9e4990efe2d2bdc0f1a42eedc82f1b3b306b362401cd71bdbe55746244b7"
+    },
+    {
+      "path": "server/types/types.lua",
+      "sha256": "e02413fabbd52b785b89d092229b45c97425c97cd530f998b1562de8764bae17"
+    },
+    {
+      "path": "server/vorpInventoryApi.lua",
+      "sha256": "b383bdb7e7b4dfc4297cbf9918bdb26af5c07d2be37520ec8f1883fb3510b8e5"
+    },
+    {
+      "path": "shared/handler/errorHandler.lua",
+      "sha256": "2a128e799e5d41b51ccc0ca05ab61a7a1c74abccbe0799cc101cfd3083e5953c"
+    },
+    {
+      "path": "shared/models/ItemClass.lua",
+      "sha256": "a1ecdca97667495101c9549bde04eeb9326056aa35976f6d20147826c026982f"
+    },
+    {
+      "path": "shared/services/UtilityService.lua",
+      "sha256": "4ef7daca250f657fc265ec4066e5035e30560dbb933d16c9f82e055cb76a3bf1"
+    }
+  ]
+}

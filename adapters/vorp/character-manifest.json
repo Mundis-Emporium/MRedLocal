@@ -1,0 +1,7 @@
+{
+  "format": 1,
+  "resource": "vorp_character",
+  "path": "server/server.lua",
+  "before_sha256": "4c979099604112bb40883adbff4c0b50217c4d64d032079887223fb94ecaf629",
+  "after_sha256": "42f7ddb1ccb5e0a16ee31d5c05f14d5c3f9f8cad9eb296143bb9897ee7bdca45"
+}

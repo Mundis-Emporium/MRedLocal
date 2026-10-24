@@ -1,0 +1,543 @@
+--- a/fxmanifest.lua
++++ b/fxmanifest.lua
+@@ -26,6 +26,7 @@
+     '@oxmysql/lib/MySQL.lua',
+     'server/class/*.lua',
+     'config/commands.lua',
++    'server/local_sessions/identity.lua',
+     'server/*lua',
+     'server/services/dbupdater/*.lua',
+ }
+--- a/server/apicontroller.lua
++++ b/server/apicontroller.lua
+@@ -45,16 +45,15 @@
+ CoreFunctions.getUser = function(source)
+     if not source then return nil end
+ 
+-    local sid = GetPlayerIdentifierByType(tostring(source), 'steam')
+-    if not sid or not _users[sid] then return nil end
+-
+-    return _users[sid].GetUser()
++    local user = LocalPeerIdentity.LoadedUser(source)
++    return user and user.GetUser() or nil
+ end
+ 
+ CoreFunctions.getUserByCharId = function(charid)
+     if charid == nil then return nil end
+     for _, v in pairs(_users) do
+-        if v.usedCharacterId ~= -1 and tonumber(v.usedCharacterId) == tonumber(charid) then
++        if LocalPeerIdentity.LoadedUser(v.source) == v
++            and v.usedCharacterId ~= -1 and tonumber(v.usedCharacterId) == tonumber(charid) then
+             return v.GetUser()
+         end
+     end
+--- a/server/bans.lua
++++ b/server/bans.lua
+@@ -1,7 +1,11 @@
+ local T = Translation[Lang].MessageOfSystem
+ 
+ AddEventHandler("vorpbans:addtodb", function(status, steamid, datetime)
++    local canonicalIdentifier = LocalPeerIdentity.CanonicalOwnerIdentifier(steamid)
+     local user = _users[steamid]
++    if user and LocalPeerIdentity.LoadedUser(user.source) ~= user then user = nil end
++    if not user then user = _users[canonicalIdentifier] end
++    if user and LocalPeerIdentity.LoadedUser(user.source) ~= user then user = nil end
+ 
+     if user then
+         local source = user.GetUser().source
+@@ -15,15 +19,25 @@
+         end
+     end
+ 
+-    MySQL.update("UPDATE users SET banned = @banned, banneduntil=@time WHERE identifier = @identifier", { ['@banned'] = status, ['@time'] = datetime, ['@identifier'] = steamid })
++    if status == true then
++        for _, activeUser in pairs(_users) do
++            if activeUser ~= user and LocalPeerIdentity.LoadedUser(activeUser.source) == activeUser
++                and GetPlayerIdentifierByType(activeUser.source, 'steam') == canonicalIdentifier then
++                DropPlayer(activeUser.source, Translation[Lang].Notify.banned3)
++            end
++        end
++    end
++
++    MySQL.update("UPDATE users SET banned = @banned, banneduntil=@time WHERE identifier = @identifier", { ['@banned'] = status, ['@time'] = datetime, ['@identifier'] = canonicalIdentifier })
+ end)
+ 
+ 
+ AddEventHandler("vorpwarns:addtodb", function(status, target, source)
+-    local sid = GetPlayerIdentifierByType(target, 'steam')
++    local sid = LocalPeerIdentity.Resolve(target)
++    local activeUser = LocalPeerIdentity.LoadedUser(target)
+ 
+-    if sid and _users[sid] then
+-        local user = _users[sid].GetUser()
++    if sid and activeUser then
++        local user = activeUser.GetUser()
+         local warnings = user.getPlayerwarnings()
+         warnings = status and warnings + 1 or warnings - 1
+         local notifyMsg = status and T.Warned or T.Unwarned
+--- a/server/loadcharacter.lua
++++ b/server/loadcharacter.lua
+@@ -6,10 +6,10 @@
+ 
+     local Player = eventData.id
+     if Player ~= -1 then
+-        local identifier = GetPlayerIdentifierByType(Player, 'steam')
+-        if not identifier or not _users[identifier] then return end
++        local user = LocalPeerIdentity.LoadedUser(Player)
++        if not user then return end
+ 
+-        local Character = _users[identifier].GetUsedCharacter()
++        local Character = user.GetUsedCharacter()
+         if Character and Character.isdead then
+             CoreFunctions.NotifyRightTip(Player, Translation[Lang].Notify.healself, 4000)
+             CoreFunctions.Player.Revive(Player)
+@@ -24,9 +24,9 @@
+ RegisterNetEvent('vorp:ImDead', function(isDead)
+     local _source = source
+ 
+-    local identifier = GetPlayerIdentifierByType(_source, 'steam')
+-    if identifier and _users[identifier] then
+-        local Character = _users[identifier].GetUsedCharacter()
++    local user = LocalPeerIdentity.LoadedUser(_source)
++    if user then
++        local Character = user.GetUsedCharacter()
+         if Character then
+             Character.setDead(isDead)
+         end
+@@ -36,8 +36,10 @@
+ 
+ RegisterServerEvent('vorp:SaveDate', function()
+     local _source = source
+-    local identifier = GetPlayerIdentifierByType(_source, 'steam')
+-    local Character = _users[identifier].GetUsedCharacter()
++    local user = LocalPeerIdentity.LoadedUser(_source)
++    if not user then return end
++    local Character = user.GetUsedCharacter()
++    if not Character then return end
+     local charid = Character.charIdentifier
+     MySQL.update("UPDATE characters SET LastLogin =NOW() WHERE charidentifier =@charidentifier", { charidentifier = charid })
+ end)
+@@ -53,9 +55,10 @@
+ AddEventHandler('vorp_core:Server:OnPlayerDeath', function(killerServerId)
+     local _source = source
+     local identifier = GetPlayerIdentifierByType(_source, 'steam')
++    local user = LocalPeerIdentity.LoadedUser(_source)
+     local victimSteamName = GetPlayerName(_source)
+ 
+-    if not _users[identifier] then
++    if not user then
+         return
+     end
+ 
+--- a/server/loadusers.lua
++++ b/server/loadusers.lua
+@@ -7,32 +7,35 @@
+ 
+ 
+ function GetMaxCharactersAllowed(source)
+-    local identifier = GetPlayerIdentifierByType(source, 'steam')
+-    local user = _users[identifier]
++    local user = LocalPeerIdentity.LoadedUser(source)
+     if not user then
+         return
+     end
+     return user._charperm
+ end
+ 
+-local function savePlayer(_source, reason, identifier)
++local function savePlayer(_source, reason, identifier, user)
+     local discordId = GetDiscordID(_source)
+     local steamName = GetPlayerName(_source)
+ 
+-    if _users[identifier] and _users[identifier].GetUsedCharacter() then
++    if user and _users[identifier] == user and user.GetUsedCharacter() then
+         if Config.SavePlayersStatus then
+-            _users[identifier].GetUsedCharacter().HealthOuter(_healthData[identifier].hOuter)
+-            _users[identifier].GetUsedCharacter().HealthInner(_healthData[identifier].hInner)
+-            _users[identifier].GetUsedCharacter().StaminaOuter(_healthData[identifier].sOuter)
+-            _users[identifier].GetUsedCharacter().StaminaInner(_healthData[identifier].sInner)
+-        end
+-        _users[identifier].SaveUser()
++            local health = _healthData[identifier]
++            if health then
++                user.GetUsedCharacter().HealthOuter(health.hOuter)
++                user.GetUsedCharacter().HealthInner(health.hInner)
++                user.GetUsedCharacter().StaminaOuter(health.sOuter)
++                user.GetUsedCharacter().StaminaInner(health.sInner)
++            end
++        end
++        user.SaveUser()
+         Player(_source).state:set('Character', nil, true)
+         Player(_source).state:set('IsInSession', nil, true)
+     end
+ 
+     if Logs.EnableWebhookJoinleave then
+-        local finaltext = string.format(T.PlayerJoinLeave.Leave, steamName, identifier, reason and (T.PlayerJoinLeave.Reason .. reason) or "")
++        local realIdentifier = GetPlayerIdentifierByType(_source, 'steam') or identifier
++        local finaltext = string.format(T.PlayerJoinLeave.Leave, steamName, realIdentifier, reason and (T.PlayerJoinLeave.Reason .. reason) or "")
+         TriggerEvent("vorp_core:addWebhook", T.PlayerJoinLeave.Leavetitle, Logs.LeaveWebhookURL, finaltext)
+     end
+ 
+@@ -41,25 +44,28 @@
+     end
+ end
+ 
+-local function removePlayer(identifier, license)
+-    if not identifier or not license then
+-        return
+-    end
+-
+-    if _usersLoading[license] then
+-        _usersLoading[license] = nil
+-    end
+-
+-    local userid = Whitelist.Functions.GetUserId(identifier)
+-    if userid and WhiteListedUsers[userid] then
++local function removePlayer(_source, identifier, session, user)
++    if session then
++        local loadingKey = session.loadingKey
++        if loadingKey and _usersLoading[loadingKey] == _source then
++            _usersLoading[loadingKey] = nil
++        end
++    end
++
++    if not identifier or not user or _users[identifier] ~= user then return end
++
++    local whitelistIdentifier = LocalPeerIdentity.CanonicalOwnerIdentifier(identifier)
++    local userid = Whitelist.Functions.GetUserId(whitelistIdentifier)
++    if userid and WhiteListedUsers[userid] and not LocalPeerIdentity.HasOtherOwnerConnection(_source) then
+         WhiteListedUsers[userid] = nil
+     end
+ 
+     SetTimeout(6000, function()
+-        if _users[identifier] then
++        if _users[identifier] == user then
+             _users[identifier] = nil
+         end
+     end)
++    _healthData[identifier] = nil
+ end
+ 
+ local function ReportCrash(reason, _source)
+@@ -124,14 +130,18 @@
+ 
+ AddEventHandler('playerDropped', function(reason)
+     local _source = source
+-    local identifier = GetPlayerIdentifierByType(_source, 'steam')
+-    local license = GetPlayerIdentifierByType(_source, 'license')
+-    savePlayer(_source, reason, identifier)
+-    removePlayer(identifier, license)
++    local session = LocalPeerIdentity.Session(_source)
++    local identifier = session and session.identifier
++    local user = LocalPeerIdentity.LoadedUser(_source)
++    if user then savePlayer(_source, reason, identifier, user) end
++    removePlayer(_source, identifier, session, user)
++    LocalPeerIdentity.Release(_source, session)
+     if Config.ReportCrashes and Config.API_KEY ~= "" then
+         ReportCrash(reason, _source)
+     end
+-    GlobalState.PlayersInSession = GlobalState.PlayersInSession - 1
++    if user and user.usedCharacterId ~= -1 then
++        GlobalState.PlayersInSession = GlobalState.PlayersInSession - 1
++    end
+ end)
+ 
+ -- todo: allow to save player when they are still in the server  example of usage is  not have to relog to select another character
+@@ -149,29 +159,65 @@
+ 
+ AddEventHandler("playerJoining", function()
+     local _source = source
+-    local identifier <const> = GetPlayerIdentifierByType(_source, 'steam')
++    local steam <const> = GetPlayerIdentifierByType(_source, 'steam')
+     local license <const> = GetPlayerIdentifierByType(_source, 'license')
+     Player(_source).state:set('IsInSession', false, true)
+ 
+-    if not identifier or not license then
++    if not steam or not license then
+         return print("user cant load no identifier steam or license found")
+     end
+ 
+-    if _usersLoading[license] then
++    local identifier, session = LocalPeerIdentity.Reserve(_source, steam, license)
++    if not identifier then
++        return DropPlayer(_source, "local peer session is not allowed")
++    end
++
++    if _usersLoading[session.loadingKey] then
++        LocalPeerIdentity.Release(_source, session)
+         return DropPlayer(_source, "player with this license is already in game")
+     end
+-    _usersLoading[license] = _source
++    _usersLoading[session.loadingKey] = _source
+ 
+     local user <const> = MySQL.single.await('SELECT `group`, `warnings`, `char`, `max_jobs` FROM users WHERE identifier = ?', { identifier })
++    if LocalPeerIdentity.Session(_source) ~= session or session.dropping then return end
+     if user then
++        if session.isAlias then
++            local count = MySQL.scalar.await('SELECT COUNT(*) FROM characters WHERE identifier = ?', { identifier })
++            if LocalPeerIdentity.Session(_source) ~= session or session.dropping then return end
++            if (tonumber(count) ~= 0 and tonumber(count) ~= 1)
++                or tonumber(user.char) ~= 1 or user.group ~= "user" then
++                return DropPlayer(_source, "local peer account or character is not configured")
++            end
++        end
+         _users[identifier] = User(_source, identifier, user.group, user.warnings, license, user.char, user.max_jobs)
++        session.user = _users[identifier]
+         _users[identifier].LoadCharacters()
+     else
++        if session.isAlias then
++            local count = MySQL.scalar.await('SELECT COUNT(*) FROM characters WHERE identifier = ?', { identifier })
++            if LocalPeerIdentity.Session(_source) ~= session or session.dropping then return end
++            if tonumber(count) ~= 0 then
++                return DropPlayer(_source, "local peer character exists without an account")
++            end
++            local ok, affected = pcall(MySQL.update.await,
++                'INSERT INTO users (`identifier`,`group`,`warnings`,`banned`,`banneduntil`,`char`,`max_jobs`) VALUES (?,?,?,?,?,?,?)',
++                { identifier, "user", 0, 0, 0, 1, 1 })
++            if LocalPeerIdentity.Session(_source) ~= session or session.dropping then return end
++            if not ok or tonumber(affected) ~= 1 then
++                return DropPlayer(_source, "local peer account could not be created")
++            end
++            _users[identifier] = User(_source, identifier, "user", 0, license, 1, 1)
++            session.user = _users[identifier]
++            _users[identifier].LoadCharacters()
++            return
++        end
+         local count <const> = MySQL.scalar.await('SELECT COUNT(*) FROM users') or 0
++        if LocalPeerIdentity.Session(_source) ~= session or session.dropping then return end
+         local defaultGroup <const> = count == 0 and "admin" or Config.initGroup
+ 
+         MySQL.insert("INSERT INTO users VALUES(?,?,?,?,?,?,?)", { identifier, defaultGroup, 0, 0, 0, Config.MaxCharacters, Config.MaxCharacterJobs })
+         _users[identifier] = User(_source, identifier, defaultGroup, 0, license, Config.MaxCharacters, Config.MaxCharacterJobs)
++        session.user = _users[identifier]
+     end
+ end)
+ 
+@@ -181,14 +227,9 @@
+ RegisterNetEvent('vorp:playerSpawn', function()
+     local _source = source
+ 
+-    local identifier <const> = GetPlayerIdentifierByType(_source, 'steam')
+-    if not identifier then
+-        return print("user cant load no identifier steam found", identifier)
+-    end
+-
+-    local user <const> = _users[identifier]
++    local user <const> = LocalPeerIdentity.LoadedUser(_source)
+     if not user then
+-        return print("user not found with identifier", identifier)
++        return print("user not found for source", _source)
+     end
+ 
+     roomId = roomId + 1
+@@ -207,10 +248,8 @@
+ 
+ RegisterNetEvent('vorp:SaveHealth', function(healthOuter, healthInner)
+     local _source = source
+-    local identifier = GetPlayerIdentifierByType(_source, 'steam')
+-
+     if healthInner and healthOuter then
+-        local user = _users[identifier] or nil
++        local user = LocalPeerIdentity.LoadedUser(_source)
+ 
+         if user then
+             local used_char = user.GetUsedCharacter() or nil
+@@ -225,9 +264,8 @@
+ 
+ RegisterNetEvent('vorp:SaveStamina', function(staminaOuter, staminaInner)
+     local _source = source
+-    local identifier = GetPlayerIdentifierByType(_source, 'steam')
+     if staminaOuter and staminaInner then
+-        local user = _users[identifier] or nil
++        local user = LocalPeerIdentity.LoadedUser(_source)
+         if user then
+             local used_char = user.GetUsedCharacter() or nil
+             if used_char then
+@@ -240,7 +278,9 @@
+ 
+ RegisterNetEvent('vorp:HealthCached', function(healthOuter, healthInner, staminaOuter, staminaInner)
+     local _source = source
+-    local identifier = GetPlayerIdentifierByType(_source, 'steam')
++    local user, session = LocalPeerIdentity.LoadedUser(_source)
++    if not user then return end
++    local identifier = session.identifier
+ 
+     if not identifier then
+         return
+@@ -259,8 +299,7 @@
+ RegisterNetEvent("vorp:GetValues", function()
+     local _source = source
+     local healthData = { hOuter = 10, hInner = 10, sOuter = 10, sInner = 10 }
+-    local identifier = GetPlayerIdentifierByType(_source, 'steam')
+-    local user = _users[identifier]
++    local user = LocalPeerIdentity.LoadedUser(_source)
+ 
+     -- Only if the player exists in online table...
+     if user and user.GetUsedCharacter then
+--- a/server/old_api.lua
++++ b/server/old_api.lua
+@@ -63,13 +63,7 @@
+ 
+ 
+ local function _getUsedCharacter(player)
+-    local sid = GetPlayerIdentifierByType(player, 'steam')
+-
+-    if not sid then
+-        return nil
+-    end
+-
+-    local user = _users[sid] or nil
++    local user = LocalPeerIdentity.LoadedUser(player)
+ 
+     if not user then
+         return nil
+--- a/server/whitelist.lua
++++ b/server/whitelist.lua
+@@ -75,7 +75,7 @@
+     end
+ 
+     --TODO  this can de added as default in class characters
+-    if Config.SaveDiscordId then
++    if Config.SaveDiscordId and not LocalPeerIdentity.IsAdditionalOwnerConnection(_source) then
+         MySQL.update('UPDATE characters SET `discordid` = ? WHERE `identifier` = ? ', { GetDiscordID(_source), steamIdentifier })
+     end
+ end)
+--- /dev/null
++++ b/server/local_sessions/identity.lua
+@@ -0,0 +1,136 @@
++LocalPeerIdentity = {}
++
++local owner = GetConvar('redm_local_owner_steam', '')
++local license = GetConvar('redm_local_owner_license', '')
++local alias = GetConvar('redm_local_alias', 'localtest:secondary')
++local enabled = GetConvar('redm_local_mode', '') == 'two_player'
++local automatic = owner == '' and license == ''
++local validOwner = automatic or (owner:match('^steam:[0-9a-fA-F]+$') ~= nil
++    and license:match('^license:[0-9a-fA-F]+$') ~= nil
++    and #owner <= 50 and #license <= 50)
++local aliasEnabled = enabled and validOwner and alias:match('^localtest:[%w_]+$') ~= nil and #alias <= 50
++local sessions = {}
++local primary
++local peer
++local generation = 0
++
++local function key(source)
++    return tostring(source)
++end
++
++local function isLoopback(source)
++    local endpoint = GetPlayerEndpoint(source)
++    return endpoint == '127.0.0.1' or endpoint == '::1' or endpoint == '[::1]'
++end
++
++local function reject(source)
++    generation = generation + 1
++    local session = { source = source, identifier = false, generation = generation }
++    sessions[key(source)] = session
++    return nil, session
++end
++
++function LocalPeerIdentity.Reserve(source, steam, realLicense)
++    local sourceKey = key(source)
++    local previous = sessions[sourceKey]
++    if previous and not previous.dropping then
++        return nil, previous
++    end
++
++    if enabled and isLoopback(source) then
++        if not aliasEnabled then return reject(source) end
++        if automatic and owner == '' then
++            if type(steam) ~= 'string' or not steam:match('^steam:[0-9a-fA-F]+$') or #steam > 50
++                or type(realLicense) ~= 'string' or not realLicense:match('^license:[0-9a-fA-F]+$') or #realLicense > 50
++                or steam ~= GetPlayerIdentifierByType(source, 'steam')
++                or realLicense ~= GetPlayerIdentifierByType(source, 'license') then return reject(source) end
++            owner, license = steam, realLicense
++        end
++    end
++
++    generation = generation + 1
++    local session = {
++        source = source,
++        identifier = steam,
++        license = realLicense,
++        loadingKey = realLicense,
++        generation = generation,
++    }
++
++    if enabled and steam == owner then
++        if realLicense ~= license or not isLoopback(source) then
++            return reject(source)
++        end
++        if not primary then
++            primary = session
++        elseif aliasEnabled and not peer and isLoopback(source) then
++            session.identifier = alias
++            session.loadingKey = alias
++            session.isAlias = true
++            peer = session
++        else
++            return reject(source)
++        end
++    end
++
++    sessions[sourceKey] = session
++    return session.identifier, session
++end
++
++function LocalPeerIdentity.Resolve(source)
++    local session = sessions[key(source)]
++    if session then
++        return session.identifier or nil
++    end
++
++    local steam = GetPlayerIdentifierByType(source, 'steam')
++    if enabled and steam == owner and (primary or peer) then
++        return nil
++    end
++    return steam
++end
++
++function LocalPeerIdentity.Session(source)
++    return sessions[key(source)]
++end
++
++function LocalPeerIdentity.LoadedUser(source)
++    local session = sessions[key(source)]
++    if not session or not session.user or not session.identifier then return nil end
++    if _users[session.identifier] ~= session.user then return nil end
++    if key(session.user.source) ~= key(source) then return nil end
++    return session.user, session
++end
++
++function LocalPeerIdentity.IsAdditionalOwnerConnection(source)
++    if not enabled or not primary or primary.source == source then return false end
++    return isLoopback(source) and GetPlayerIdentifierByType(source, 'steam') == owner
++        and GetPlayerIdentifierByType(source, 'license') == license
++end
++
++function LocalPeerIdentity.HasOtherOwnerConnection(source)
++    if not enabled then return false end
++    local session = sessions[key(source)]
++    if session ~= primary and session ~= peer then return false end
++    return (primary and primary ~= session and not primary.dropping)
++        or (peer and peer ~= session and not peer.dropping)
++        or false
++end
++
++function LocalPeerIdentity.CanonicalOwnerIdentifier(identifier)
++    if aliasEnabled and owner ~= '' and identifier == alias then return owner end
++    return identifier
++end
++
++function LocalPeerIdentity.Release(source, session)
++    if not session or sessions[key(source)] ~= session then return end
++    session.dropping = true
++    if primary == session then primary = nil end
++    if peer == session then peer = nil end
++    SetTimeout(0, function()
++        if sessions[key(source)] == session then
++            session.identifier = false
++            session.user = nil
++        end
++    end)
++end

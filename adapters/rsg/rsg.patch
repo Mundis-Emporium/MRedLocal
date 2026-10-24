@@ -1,0 +1,405 @@
+--- a/rsg-core/fxmanifest.lua
++++ b/rsg-core/fxmanifest.lua
+@@ -37,6 +37,7 @@
+     '@oxmysql/lib/MySQL.lua',
+     'server/main.lua',
+     'server/functions.lua',
++    'server/local_sessions/identity.lua',
+     'server/moneyitems.lua',
+     'server/player.lua',
+     'server/events.lua',
+--- a/rsg-core/server/events.lua
++++ b/rsg-core/server/events.lua
+@@ -9,13 +9,17 @@
+ 
+ AddEventHandler('playerDropped', function(reason)
+     local src = source
+-    if not RSGCore.Players[src] then return end
++    local session = RSGCore.LocalPeerIdentity.Session(src)
+     local Player = RSGCore.Players[src]
++    RSGCore.LocalPeerIdentity.Release(src, session)
++    if not Player then return end
+     TriggerEvent('rsg-log:server:CreateLog', 'joinleave', 'Dropped', 'red', '**' .. GetPlayerName(src) .. '** (' .. Player.PlayerData.license .. ') left..' .. '\n **Reason:** ' .. reason)
+     TriggerEvent('RSGCore:Server:PlayerDropped', Player)
++    if RSGCore.Players[src] ~= Player then return end
+     Player.Functions.Save()
+-    RSGCore.Player_Buckets[Player.PlayerData.license] = nil
+-    RSGCore.Players[src] = nil
++    local bucket = RSGCore.Player_Buckets[Player.PlayerData.license]
++    if bucket and bucket.id == src then RSGCore.Player_Buckets[Player.PlayerData.license] = nil end
++    if RSGCore.Players[src] == Player then RSGCore.Players[src] = nil end
+ end)
+ 
+ local readyFunction = MySQL.ready
+@@ -75,7 +79,8 @@
+ 
+     if not license then
+         return deferrals.done(Lang:t('error.no_valid_license'))
+-    elseif RSGCore.Config.Server.CheckDuplicateLicense and RSGCore.Functions.IsLicenseInUse(license) then
++    elseif RSGCore.Config.Server.CheckDuplicateLicense and RSGCore.Functions.IsLicenseInUse(license)
++        and not RSGCore.LocalPeerIdentity.CanConnect(src) then
+         return deferrals.done(Lang:t('error.duplicate_license'))
+     end
+ 
+--- a/rsg-core/server/functions.lua
++++ b/rsg-core/server/functions.lua
+@@ -29,10 +29,13 @@
+ ---@param identifier string
+ ---@return number
+ function RSGCore.Functions.GetSource(identifier)
++    for src, player in pairs(RSGCore.Players) do
++        if player.PlayerData.license == identifier then return src end
++    end
+     for src, _ in pairs(RSGCore.Players) do
+         local idens = GetPlayerIdentifiers(src)
+         for _, id in pairs(idens) do
+-            if identifier == id then
++            if identifier == id and RSGCore.Players[src].PlayerData.license == RSGCore.Functions.GetIdentifier(src, 'license') then
+                 return src
+             end
+         end
+@@ -256,7 +259,8 @@
+ ---@return boolean
+ function RSGCore.Functions.SetPlayerBucket(source, bucket)
+     if source and bucket then
+-        local plicense = RSGCore.Functions.GetIdentifier(source, 'license')
++        local plicense = RSGCore.LocalPeerIdentity.Resolve(source)
++        if not plicense then return false end
+         Player(source).state:set('instance', bucket, true)
+         SetPlayerRoutingBucket(source, bucket)
+         RSGCore.Player_Buckets[plicense] = { id = source, bucket = bucket }
+--- /dev/null
++++ b/rsg-core/server/local_sessions/identity.lua
+@@ -0,0 +1,110 @@
++-- SPDX-License-Identifier: GPL-3.0-only
++RSGCore.LocalPeerIdentity = {}
++local Identity = RSGCore.LocalPeerIdentity
++local owner = GetConvar('redm_local_owner_steam', '')
++local license = GetConvar('redm_local_owner_license', '')
++local alias = GetConvar('redm_local_alias', 'localtest:secondary')
++local enabled = GetConvar('redm_local_mode', '') == 'two_player'
++local automatic = owner == '' and license == ''
++local validOwner = automatic or (owner:match('^steam:[0-9a-fA-F]+$') ~= nil
++    and license:match('^license:[0-9a-fA-F]+$') ~= nil
++    and #owner <= 50 and #license <= 50)
++local aliasEnabled = enabled and validOwner and alias:match('^localtest:[%w_]+$') ~= nil and #alias <= 50
++local sessions, claims = {}, {}
++local primary, peer
++
++local function loopback(src)
++    local endpoint = GetPlayerEndpoint(src)
++    return endpoint == '127.0.0.1' or endpoint == '::1' or endpoint == '[::1]'
++end
++
++function Identity.CanConnect(src)
++    return aliasEnabled and loopback(src) and (not primary or not peer)
++        and GetPlayerIdentifierByType(src, 'steam') == owner
++        and GetPlayerIdentifierByType(src, 'license') == license
++end
++
++function Identity.Session(src)
++    return sessions[tostring(src)]
++end
++
++function Identity.Current(src, session)
++    return session ~= nil and sessions[tostring(src)] == session and not session.dropped
++        and session.license == GetPlayerIdentifierByType(src, 'license')
++        and session.steam == GetPlayerIdentifierByType(src, 'steam')
++end
++
++function Identity.Resolve(src)
++    local session = Identity.Session(src)
++    if Identity.Current(src, session) then return session.profile end
++end
++
++function Identity.Release(src, session)
++    if not Identity.Current(src, session) and sessions[tostring(src)] ~= session then return end
++    if not session then return end
++    session.dropped = true
++    if session.claim and claims[session.claim] == session then claims[session.claim] = nil end
++    sessions[tostring(src)] = nil
++    if primary == session then primary = nil end
++    if peer == session then peer = nil end
++end
++
++function Identity.BeginLogin(src, citizenid)
++    local session = Identity.Session(src)
++    if not Identity.Current(src, session) or session.loading or session.unloading or RSGCore.Players[src] then return end
++    if citizenid and (type(citizenid) ~= 'string' or citizenid == '' or #citizenid > 50
++        or claims[citizenid] or RSGCore.Functions.GetPlayerByCitizenId(citizenid)) then return end
++    session.loading = true
++    session.claim = citizenid or nil
++    if citizenid then claims[citizenid] = session end
++    return session
++end
++
++function Identity.EndLogin(session)
++    if session.claim and claims[session.claim] == session then claims[session.claim] = nil end
++    session.claim = nil
++    session.loading = false
++end
++
++function Identity.CanCreate(src, data)
++    local session = Identity.Session(src)
++    return Identity.Current(src, session) and session.loading and not session.unloading
++        and data.license == session.profile and not RSGCore.Players[src]
++        and not RSGCore.Functions.GetPlayerByCitizenId(data.citizenid)
++end
++
++AddEventHandler('playerJoining', function()
++    local src = source
++    local old = Identity.Session(src)
++    if old then
++        DropPlayer(src, 'Local testing session is already bound. Reconnect.')
++        return
++    end
++    local steam = GetPlayerIdentifierByType(src, 'steam')
++    local realLicense = GetPlayerIdentifierByType(src, 'license')
++    if not realLicense then DropPlayer(src, 'No valid license.'); return end
++    if enabled and loopback(src) then
++        if not aliasEnabled then DropPlayer(src, 'Invalid local testing owner settings.'); return end
++        if automatic and owner == '' then
++            if type(steam) ~= 'string' or not steam:match('^steam:[0-9a-fA-F]+$') or #steam > 50
++                or not realLicense:match('^license:[0-9a-fA-F]+$') or #realLicense > 50 then
++                DropPlayer(src, 'Local testing requires valid Steam and license identifiers.'); return
++            end
++            owner, license = steam, realLicense
++        end
++    end
++    local session = { source = src, steam = steam, license = realLicense, profile = realLicense }
++    if enabled and steam == owner then
++        if realLicense ~= license or not loopback(src) then
++            DropPlayer(src, 'Local testing requires the configured owner on loopback.'); return
++        elseif not primary then
++            primary = session
++        elseif aliasEnabled and not peer then
++            session.profile = alias
++            peer = session
++        else
++            DropPlayer(src, 'Local testing allows two owner sessions.'); return
++        end
++    end
++    sessions[tostring(src)] = session
++end)
+--- a/rsg-core/server/player.lua
++++ b/rsg-core/server/player.lua
+@@ -7,30 +7,34 @@
+ 
+ local resourceName = GetCurrentResourceName()
+ function RSGCore.Player.Login(source, citizenid, newData)
+-    if source and source ~= '' then
++    local identity = RSGCore.LocalPeerIdentity
++    local session = identity.BeginLogin(source, citizenid)
++    if not session then return false end
++    local ok, result = pcall(function()
++        local PlayerData
+         if citizenid then
+-            local license = RSGCore.Functions.GetIdentifier(source, 'license')
+-            local PlayerData = MySQL.prepare.await('SELECT * FROM players where citizenid = ?', { citizenid })
+-            if PlayerData and license == PlayerData.license then
+-                PlayerData.money = json.decode(PlayerData.money)
+-                PlayerData.job = json.decode(PlayerData.job)
+-                PlayerData.gang = json.decode(PlayerData.gang)
+-                PlayerData.position = json.decode(PlayerData.position)
+-                PlayerData.metadata = json.decode(PlayerData.metadata)
+-                PlayerData.charinfo = json.decode(PlayerData.charinfo)
+-                RSGCore.Player.CheckPlayerData(source, PlayerData)
+-            else
++            PlayerData = MySQL.prepare.await('SELECT * FROM players where citizenid = ?', { citizenid })
++            if not identity.Current(source, session) then return false end
++            if not PlayerData or PlayerData.license ~= session.profile then
+                 DropPlayer(source, Lang:t('info.exploit_dropped'))
+-                TriggerEvent('rsg-log:server:CreateLog', 'anticheat', 'Anti-Cheat', 'white', GetPlayerName(source) .. ' Has Been Dropped For Character Joining Exploit', false)
+-            end
++                return false
++            end
++            PlayerData.money = json.decode(PlayerData.money)
++            PlayerData.job = json.decode(PlayerData.job)
++            PlayerData.gang = json.decode(PlayerData.gang)
++            PlayerData.position = json.decode(PlayerData.position)
++            PlayerData.metadata = json.decode(PlayerData.metadata)
++            PlayerData.charinfo = json.decode(PlayerData.charinfo)
+         else
+-            RSGCore.Player.CheckPlayerData(source, newData)
+-        end
+-        return true
+-    else
+-        RSGCore.ShowError(resourceName, 'ERROR RSGCore.PLAYER.LOGIN - NO SOURCE GIVEN!')
+-        return false
+-    end
++            if type(newData) ~= 'table' or newData.citizenid then return false end
++            PlayerData = newData
++            PlayerData.license = session.profile
++        end
++        return RSGCore.Player.CheckPlayerData(source, PlayerData) ~= nil
++    end)
++    identity.EndLogin(session)
++    if not ok then error(result) end
++    return result
+ end
+ 
+ function RSGCore.Player.GetOfflinePlayer(citizenid)
+@@ -96,7 +100,7 @@
+ 
+     if source then
+         PlayerData.source = source
+-        PlayerData.license = PlayerData.license or RSGCore.Functions.GetIdentifier(source, 'license')
++        PlayerData.license = PlayerData.license or RSGCore.LocalPeerIdentity.Resolve(source)
+         PlayerData.name = GetPlayerName(source)
+     end
+ 
+@@ -146,21 +150,27 @@
+ 
+     applyDefaults(PlayerData, RSGCore.Config.Player.PlayerDefaults)
+ 
++    local session = source and RSGCore.LocalPeerIdentity.Session(source)
+     if GetResourceState('rsg-inventory') ~= 'missing' then
+         PlayerData.items = exports['rsg-inventory']:LoadInventory(PlayerData.source, PlayerData.citizenid)
+     end
+-
++    if source and not RSGCore.LocalPeerIdentity.Current(source, session) then return end
+     return RSGCore.Player.CreatePlayer(PlayerData, Offline)
+ end
+ 
+ -- On player logout
+ 
+ function RSGCore.Player.Logout(source)
++    local player = RSGCore.Players[source]
++    local session = RSGCore.LocalPeerIdentity.Session(source)
++    if not player or not RSGCore.LocalPeerIdentity.Current(source, session) then return end
++    session.unloading = true
+     TriggerClientEvent('RSGCore:Client:OnPlayerUnload', source)
+     TriggerEvent('RSGCore:Server:OnPlayerUnload', source)
+     TriggerClientEvent('RSGCore:Player:UpdatePlayerData', source)
+     Wait(200)
+-    RSGCore.Players[source] = nil
++    if RSGCore.Players[source] == player then RSGCore.Players[source] = nil end
++    if RSGCore.LocalPeerIdentity.Current(source, session) then session.unloading = false end
+ end
+ 
+ -- Create a new character
+@@ -168,6 +178,8 @@
+ -- Will cause major issues!
+ 
+ function RSGCore.Player.CreatePlayer(PlayerData, Offline)
++    local session = not Offline and RSGCore.LocalPeerIdentity.Session(PlayerData.source)
++    if not Offline and not RSGCore.LocalPeerIdentity.CanCreate(PlayerData.source, PlayerData) then return end
+     local self = {}
+     self.Functions = {}
+     self.PlayerData = PlayerData
+@@ -463,7 +475,10 @@
+         RSGCore.Players[self.PlayerData.source] = self
+         RSGCore.Player.Save(self.PlayerData.source)
+         TriggerEvent('RSGCore:Server:PlayerLoaded', self)
++        if not RSGCore.LocalPeerIdentity.Current(PlayerData.source, session)
++            or RSGCore.Players[PlayerData.source] ~= self then return end
+         self.Functions.UpdatePlayerData()
++        return self
+     end
+ end
+ 
+@@ -588,8 +603,13 @@
+ }
+ 
+ function RSGCore.Player.DeleteCharacter(source, citizenid)
+-    local license = RSGCore.Functions.GetIdentifier(source, 'license')
++    local identity = RSGCore.LocalPeerIdentity
++    local session = identity.Session(source)
++    if not identity.Current(source, session) or type(citizenid) ~= 'string' then return false end
++    local license = session.profile
+     local result = MySQL.scalar.await('SELECT license FROM players where citizenid = ?', { citizenid })
++    if not identity.Current(source, session) then return false end
++    if RSGCore.Functions.GetPlayerByCitizenId(citizenid) or session.loading then return false end
+     if license == result then
+         local query = 'DELETE FROM %s WHERE citizenid = ?'
+         local tableCount = #playertables
+--- a/rsg-multicharacter/server/main.lua
++++ b/rsg-multicharacter/server/main.lua
+@@ -5,8 +5,13 @@
+ local hasDonePreloading = {}
+ 
+ AddEventHandler('RSGCore:Server:PlayerLoaded', function(Player)
+-    Wait(1000) -- 1 second should be enough to do the preloading in other resources
+-    hasDonePreloading[Player.PlayerData.source] = true
++    local src = Player.PlayerData.source
++    local identity = RSGCore.LocalPeerIdentity
++    local session = identity.Session(src)
++    Wait(1000)
++    if identity.Current(src, session) and RSGCore.Players[src] == Player then
++        hasDonePreloading[src] = true
++    end
+ end)
+ 
+ AddEventHandler('RSGCore:Server:OnPlayerUnload', function(src)
+@@ -59,11 +64,15 @@
+ 
+ RegisterNetEvent('rsg-multicharacter:server:loadUserData', function(cData, skindata)
+     local src = source
++    if type(cData) ~= 'table' or type(cData.citizenid) ~= 'string' then return end
++    local identity = RSGCore.LocalPeerIdentity
++    local session = identity.Session(src)
+     if RSGCore.Player.Login(src, cData.citizenid) then
+         print('^2[rsg-core]^7 '..GetPlayerName(src)..' (Citizen ID: '..cData.citizenid..') has succesfully loaded!')
+         repeat
+             Wait(10)
+-        until hasDonePreloading[src]
++        until hasDonePreloading[src] or not identity.Current(src, session)
++        if not identity.Current(src, session) then return end
+         RSGCore.Commands.Refresh(src)
+         TriggerClientEvent("rsg-multicharacter:client:closeNUI", src)
+         if not skindata then
+@@ -78,12 +87,16 @@
+ RegisterNetEvent('rsg-multicharacter:server:createCharacter', function(data)
+     local newData = {}
+     local src = source
++    if type(data) ~= 'table' then return end
++    local identity = RSGCore.LocalPeerIdentity
++    local session = identity.Session(src)
+     newData.cid = data.cid
+     newData.charinfo = data
+     if RSGCore.Player.Login(src, false, newData) then
+         repeat
+             Wait(10)
+-        until hasDonePreloading[src]
++        until hasDonePreloading[src] or not identity.Current(src, session)
++        if not identity.Current(src, session) then return end
+         RSGCore.ShowSuccess(GetCurrentResourceName(), GetPlayerName(src)..' has succesfully loaded!')
+         RSGCore.Commands.Refresh(src)
+         GiveStarterItems(src)
+@@ -92,7 +105,6 @@
+ 
+ RegisterNetEvent('rsg-multicharacter:server:deleteCharacter', function(citizenid)
+     local src = source
+-    MySQL.update('DELETE FROM playerskins WHERE citizenid = ?', {citizenid})
+     RSGCore.Player.DeleteCharacter(src, citizenid)
+ end)
+ 
+@@ -100,9 +112,13 @@
+ 
+ RSGCore.Functions.CreateCallback("rsg-multicharacter:server:setupCharacters", function(source, cb)
+     local src = source
+-    local license = RSGCore.Functions.GetIdentifier(src, 'license')
++    local identity = RSGCore.LocalPeerIdentity
++    local session = identity.Session(src)
++    local license = identity.Resolve(src)
++    if not license then cb({}); return end
+     local plyChars = {}
+     MySQL.Async.fetchAll('SELECT * FROM players WHERE license = @license', {['@license'] = license}, function(result)
++        if not identity.Current(src, session) then cb({}); return end
+         for i = 1, (#result), 1 do
+             result[i].charinfo = json.decode(result[i].charinfo)
+             result[i].money = json.decode(result[i].money)
+@@ -133,7 +149,13 @@
+ end)
+ 
+ RSGCore.Functions.CreateCallback("rsg-multicharacter:server:getAppearance", function(source, cb, citizenid)
++    local identity = RSGCore.LocalPeerIdentity
++    local session = identity.Session(source)
++    if not identity.Current(source, session) or type(citizenid) ~= 'string' then cb(nil); return end
++    local owner = MySQL.scalar.await('SELECT license FROM players WHERE citizenid = ?', { citizenid })
++    if not identity.Current(source, session) or owner ~= session.profile then cb(nil); return end
+     MySQL.Async.fetchAll('SELECT * FROM playerskins WHERE citizenid = ?', { citizenid}, function(result)
++        if not identity.Current(source, session) then cb(nil); return end
+         if result ~= nil and #result > 0 then
+             local skinData = json.decode(result[1].skin)
+             local clothesData = json.decode(result[1].clothes)

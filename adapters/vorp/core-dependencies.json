@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "adapter": "VORP Core identity API dependencies",
+  "files": [],
+  "read_only": [
+    {
+      "path": "server/class/user.lua",
+      "sha256": "1f051f23d8c7e2d309f4aab78de2fc2d5e0a056566850ee1af188c937951d6ee"
+    },
+    {
+      "path": "server/class/character.lua",
+      "sha256": "0de13061bd2a1a50e03028eb02e677c8792f14ef6ddac95441fd4c8dab17af62"
+    }
+  ]
+}

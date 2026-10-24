@@ -1,0 +1,48 @@
+{
+  "format": 1,
+  "adapter": "vorp_core 3.3 local two player",
+  "version_file": "fxmanifest.lua",
+  "required_version": "version '3.3'",
+  "files": [
+    {
+      "path": "fxmanifest.lua",
+      "before_sha256": "bf724b9a8333a5be26b40449b08015db9cf64ed91fbd6622ca2a1f1eb54058d2",
+      "after_sha256": "ea565d1f4641381c812da1e14e121c0820422b2e26afa07c028d65d418d0e7be"
+    },
+    {
+      "path": "server/apicontroller.lua",
+      "before_sha256": "c4c92ee557223f08cefe79b7af498dafa6151d918abc06d018af3b64ff5a90a0",
+      "after_sha256": "b5ff0e47787edc36f22ea6e49642d79d48e7c088e476ea137b58bb1211a8731e"
+    },
+    {
+      "path": "server/bans.lua",
+      "before_sha256": "78951bfe8c2441ba78dbf31e3732436a4ea772c711833ec47e28b3a1d8b0d601",
+      "after_sha256": "29f98bb3f9371a3062ac9593f1f8cfe4c114b4a57441c2d07233283764029e1b"
+    },
+    {
+      "path": "server/loadcharacter.lua",
+      "before_sha256": "688bbf1fdc68e727f56fbdb3dd0cabdbca9e234afbb4217dc06ac3a6f184a373",
+      "after_sha256": "fc041da2cfd0ea7b05f0a0205be7b1d3c0a33b7e9f50e4ed77e52562f8d648b7"
+    },
+    {
+      "path": "server/loadusers.lua",
+      "before_sha256": "7a0917d78b98dd13cb92998b2bbaac95538625a6645a26573b9f932fb973a464",
+      "after_sha256": "dbeea872eb8282f41e424c6fc32db345447eff57282b79a7256724ab2c300302"
+    },
+    {
+      "path": "server/old_api.lua",
+      "before_sha256": "58ccfaab9a3e1ae41323b68bc2dca70a3b44d8c4e5d799b4030c0a74713621ae",
+      "after_sha256": "ff936eb343ba394319bbad68dcf0ae2139520c0e38bb511a20cd8530eb3d53b7"
+    },
+    {
+      "path": "server/whitelist.lua",
+      "before_sha256": "3c476d8e52ba13d7474d8f3d4515285c27a2b155303b690a32fa9d28434609b2",
+      "after_sha256": "1a0079772a1ed3a569a896b5d0af0ed031a222ceb4fc30010cfefbc754a98f42"
+    },
+    {
+      "path": "server/local_sessions/identity.lua",
+      "before_sha256": null,
+      "after_sha256": "5af0a705129effa8f37dd9ef10d61158922eabd01fc104542879289219aab6d8"
+    }
+  ]
+}
