@@ -96,6 +96,7 @@ public sealed class ServerSetupService
         var fresh = Plan(plan.Candidate, plan.ConfigMode);
         FileSafety.Require(fresh.Status == SetupStatus.Compatible, fresh.Message);
         FileSafety.Require(SameGuards(plan.Guards, fresh.Guards), "The server changed after inspection. Inspect it again before applying setup.");
+        FileSafety.Require(FindRecoveryManifest(plan.Candidate) is null, "Remove the interrupted setup before trying again.");
         FileSafety.NoLinks(backupRoot);
         FileSafety.Require(!FileSafety.Within(backupRoot, plan.Candidate.ServerDirectory) && !FileSafety.Within(plan.Candidate.ServerDirectory, backupRoot), "Backups must be outside the selected server folder.");
         var backup = Path.Combine(backupRoot, DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N"));
@@ -119,36 +120,85 @@ public sealed class ServerSetupService
     public SetupReceipt Rollback(string manifestPath)
     {
         manifestPath = FileSafety.Full(manifestPath);
+        var backup = Path.GetDirectoryName(manifestPath)!;
+        var files = ReadRecovery(manifestPath, out var journal);
+        FileSafety.Require(!processProbe.IsRunning(journal.Candidate), "Stop FXServer before removing setup.");
+        PutTransaction(files);
+        return new(backup, manifestPath, "Original framework and configuration files were restored. The backup was kept.");
+    }
+
+    public string? FindRecoveryManifest(ServerCandidate candidate)
+    {
+        ValidateCandidate(candidate);
+        FileSafety.NoLinks(backupRoot);
+        if (!Directory.Exists(backupRoot)) return null;
+        var matches = new List<(string Path, DateTime Modified)>();
+        foreach (var directory in Directory.EnumerateDirectories(backupRoot, "*", SearchOption.TopDirectoryOnly))
+        {
+            try
+            {
+                FileSafety.NoLinks(directory);
+                var path = Path.Combine(directory, "rollback.json");
+                if (!File.Exists(path)) continue;
+                var files = ReadRecovery(path, out var journal);
+                if (files.Count > 0 && SameCandidate(candidate, journal.Candidate))
+                    matches.Add((path, File.GetLastWriteTimeUtc(path)));
+            }
+            catch (Exception exception) when (Expected(exception)) { }
+        }
+        return matches.OrderByDescending(match => match.Modified).ThenByDescending(match => match.Path, StringComparer.Ordinal).Select(match => match.Path).FirstOrDefault();
+    }
+
+    private static List<PlannedFile> ReadRecovery(string manifestPath, out Journal journal)
+    {
         FileSafety.NoLinks(manifestPath);
         var backup = Path.GetDirectoryName(manifestPath)!;
-        var journal = JsonSerializer.Deserialize<Journal>(File.ReadAllBytes(manifestPath)) ?? throw new SetupRefusedException("The setup backup is invalid.");
-        FileSafety.Require(journal.Format == 1 && journal.Files.Count > 0, "The setup backup format is not supported.");
+        journal = JsonSerializer.Deserialize<Journal>(File.ReadAllBytes(manifestPath)) ?? throw new SetupRefusedException("The setup backup is invalid.");
+        if (journal.Format != 1 || journal.Candidate is null || journal.Files is not { Count: > 0 })
+            throw new SetupRefusedException("The setup backup format is not supported.");
         ValidateCandidate(journal.Candidate);
-        FileSafety.Require(!FileSafety.Within(backup, journal.Candidate.ServerDirectory), "The backup must be outside the server folder.");
-        FileSafety.Require(!processProbe.IsRunning(journal.Candidate), "Stop FXServer before removing setup.");
+        FileSafety.Require(!FileSafety.Within(backup, journal.Candidate.ServerDirectory) && !FileSafety.Within(journal.Candidate.ServerDirectory, backup), "The backup must be outside the server folder.");
         var files = new List<PlannedFile>();
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in journal.Files)
         {
-            FileSafety.Require(FileSafety.Within(file.Path, journal.Candidate.BaseDirectory) && paths.Add(FileSafety.Full(file.Path)), "The setup backup contains an unsafe target.");
+            if (file is null) throw new SetupRefusedException("The setup backup contains an invalid file.");
+            FileSafety.Require(!string.IsNullOrWhiteSpace(file.Path) && Path.IsPathFullyQualified(file.Path)
+                && FileSafety.Within(file.Path, journal.Candidate.BaseDirectory) && paths.Add(FileSafety.Full(file.Path)), "The setup backup contains an unsafe target.");
+            FileSafety.Require(ValidHash(file.AfterHash) && (file.BeforeHash is null || ValidHash(file.BeforeHash))
+                && file.BeforeHash != file.AfterHash, "The setup backup contains invalid file checksums.");
             var current = FileSafety.Read(file.Path);
-            FileSafety.Require(FileSafety.Hash(current) == file.AfterHash, "An installed file changed after setup. Removal was refused to preserve your edits: " + Path.GetFileName(file.Path));
+            var currentHash = FileSafety.Hash(current);
+            FileSafety.Require(currentHash == file.AfterHash || currentHash == file.BeforeHash, "An installed file changed after setup. Removal was refused to preserve your edits: " + Path.GetFileName(file.Path));
             byte[]? original = null;
             if (file.BeforeHash != null)
             {
-                FileSafety.Require(file.BackupFile != null && Path.GetFileName(file.BackupFile) == file.BackupFile, "The setup backup contains an unsafe saved file.");
+                FileSafety.Require(!string.IsNullOrWhiteSpace(file.BackupFile) && file.BackupFile is not ("." or "..")
+                    && !Path.IsPathRooted(file.BackupFile) && Path.GetFileName(file.BackupFile) == file.BackupFile, "The setup backup contains an unsafe saved file.");
                 original = FileSafety.Read(Path.Combine(backup, file.BackupFile!));
             }
+            else FileSafety.Require(file.BackupFile is null, "The setup backup contains an unexpected saved file.");
             FileSafety.Require(FileSafety.Hash(original) == file.BeforeHash, "A saved original file changed. Removal was refused.");
-            files.Add(new(file.Path, current, original));
+            if (currentHash == file.AfterHash) files.Add(new(file.Path, current, original));
         }
-        FileSafety.Require(!processProbe.IsRunning(journal.Candidate), "Stop FXServer before removing setup.");
-        PutTransaction(files);
-        return new(backup, manifestPath, "Setup was removed. Original source and configuration bytes were restored. The backup was retained.");
+        return files;
     }
+
+    private static bool ValidHash(string? hash) => hash is { Length: 64 } && hash.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
+    private static bool SameCandidate(ServerCandidate left, ServerCandidate right) =>
+        FileSafety.Full(left.BaseDirectory).Equals(FileSafety.Full(right.BaseDirectory), StringComparison.OrdinalIgnoreCase)
+        && FileSafety.Full(left.ConfigPath).Equals(FileSafety.Full(right.ConfigPath), StringComparison.OrdinalIgnoreCase)
+        && FileSafety.Full(left.ResourcesDirectory).Equals(FileSafety.Full(right.ResourcesDirectory), StringComparison.OrdinalIgnoreCase)
+        && left.Framework.Equals(right.Framework, StringComparison.OrdinalIgnoreCase);
 
     private static void ValidateCandidate(ServerCandidate candidate)
     {
+        if (candidate is null) throw new SetupRefusedException("The selected server is missing.");
+        FileSafety.Require(!string.IsNullOrWhiteSpace(candidate.ServerDirectory)
+            && !string.IsNullOrWhiteSpace(candidate.BaseDirectory) && !string.IsNullOrWhiteSpace(candidate.ConfigPath)
+            && !string.IsNullOrWhiteSpace(candidate.ResourcesDirectory) && !string.IsNullOrWhiteSpace(candidate.Framework)
+            && Path.IsPathFullyQualified(candidate.ServerDirectory) && Path.IsPathFullyQualified(candidate.BaseDirectory)
+            && Path.IsPathFullyQualified(candidate.ConfigPath) && Path.IsPathFullyQualified(candidate.ResourcesDirectory), "The selected server paths are incomplete.");
         FileSafety.Require(FileSafety.Within(candidate.BaseDirectory, candidate.ServerDirectory)
             && FileSafety.Full(candidate.ConfigPath) == FileSafety.Full(Path.Combine(candidate.BaseDirectory, "server.cfg"))
             && FileSafety.Full(candidate.ResourcesDirectory) == FileSafety.Full(Path.Combine(candidate.BaseDirectory, "resources")), "The selected server paths are inconsistent.");

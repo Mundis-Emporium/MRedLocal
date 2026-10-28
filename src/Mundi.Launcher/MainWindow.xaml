@@ -274,7 +274,7 @@
             <ColumnDefinition Width="Auto"/>
           </Grid.ColumnDefinitions>
           <StackPanel VerticalAlignment="Center" Margin="0,0,20,0">
-            <TextBlock x:Name="FooterTitle" Text="Ready when you are" FontWeight="SemiBold"/>
+            <TextBlock x:Name="FooterTitle" Text="Ready" FontWeight="SemiBold"/>
             <TextBlock x:Name="FooterMessage" Text="Load your main character before starting the second client." Style="{StaticResource Hint}" Margin="0,4,0,0"/>
             <ProgressBar x:Name="LaunchProgressBar" Height="2" Margin="0,8,0,0" IsIndeterminate="True" Foreground="{StaticResource Accent}" Background="#353535" Visibility="Collapsed"/>
           </StackPanel>

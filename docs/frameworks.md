@@ -1,8 +1,7 @@
 # Frameworks
 
-- **VORP:** Core 3.3, Inventory 4.5. Tested in game with two clients.
-- **RSG:** Core 2.3.10, Multicharacter 2.3.5, Inventory 2.8.4. Automated tests passed; two-client gameplay testing is still pending.
+Automatic server setup includes adapters for **VORP** and **RSG**.
 
-The two-client method can be adapted to other frameworks. Automatic setup currently accepts the builds listed above. Other versions need an adapter update.
+The launcher checks Core, character and inventory files before making changes. If your files do not match an adapter, setup stops and shows which file needs attention.
 
-Standalone and custom frameworks are not supported yet.
+Other frameworks need a matching server adapter.

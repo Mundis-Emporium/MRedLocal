@@ -28,7 +28,7 @@ The second character needs a separate framework profile. Removing a duplicate-ac
 
 ## Server setup is blocked
 
-Stop FXServer before setting up or removing the adapter. Only the [listed framework builds](frameworks.md) are accepted. Modified files need a matching adapter; do not force a patch over them.
+Stop FXServer before setting up or removing the adapter. Setup checks your framework files against its adapter. Modified files need a matching adapter; do not force a patch over them.
 
 ## Second client uses too much memory
 

@@ -435,12 +435,15 @@ public partial class MainWindow : Window
         if (inspection.Candidates.Count == 1)
         {
             var selected = inspection.Candidates[0];
-            var selectedPlan = await Task.Run(() => setup.Plan(selected, ConfigUpdateMode.IncludeBeforeResources));
+            var (selectedPlan, recoveredManifest) = await Task.Run(() =>
+                (setup.Plan(selected, ConfigUpdateMode.IncludeBeforeResources), setup.FindRecoveryManifest(selected)));
             if (request != inspectionGeneration || folder != profile.ServerFolder || serverMutation is not null) return;
             server = selected;
             FrameworkText.Text = selected.Framework + " · " + selected.Version;
             setupPlan = selectedPlan;
-            SetupButton.IsEnabled = setupPlan.Status == SetupStatus.Compatible;
+            if (recoveredManifest is not null) profile.RememberBackup(selected.ConfigPath, recoveredManifest);
+            else profile.ForgetBackup(selected.ConfigPath);
+            SetupButton.IsEnabled = setupPlan.Status == SetupStatus.Compatible && recoveredManifest is null;
             SetupButton.Content = setupPlan.Status == SetupStatus.AlreadyInstalled ? "Already set up" : "Set up local testing";
             if (string.IsNullOrEmpty(profile.ServerExecutable)) profile.ServerExecutable = LocalServices.FindServerExecutable(server);
             ServerExeBox.Text = profile.ServerExecutable;
@@ -451,6 +454,8 @@ public partial class MainWindow : Window
         else FrameworkText.Text = "Choose a server base";
         SetupStatusText.Text = inspection.Message;
         RemoveSetupButton.IsEnabled = File.Exists(profile.BackupFor(server?.ConfigPath));
+        if (setupPlan?.Status == SetupStatus.Compatible && RemoveSetupButton.IsEnabled)
+            SetupStatusText.Text = "Setup was interrupted. Use Remove setup to restore the saved files before trying again.";
         profile.Save();
     }
 

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using RedMLocalSetup;
 
 var repo = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
@@ -48,6 +49,18 @@ var tests = new (string Name, Action Run)[]
     ("Keep unrelated shared resource junctions intact", UnrelatedJunction),
     ("Restore earlier source writes if a later file is locked", WriteFailure),
     ("Rollback preserves later untouched inventory edits", RollbackDependencyChanged),
+    ("Rediscover outstanding backups without saved desktop settings", RecoveryRediscovery),
+    ("Recover an interrupted partial installation", () => PartialRecovery(false)),
+    ("Refuse reinstallation while a partial setup needs recovery", PartialRecoveryReapply),
+    ("Resume an interrupted partial rollback", () => PartialRecovery(true)),
+    ("Ignore fully restored and unrelated recovery records", RecoveryIgnored),
+    ("Choose the newest valid outstanding direct recovery record", RecoveryNewest),
+    ("Recovery preserves later user edits without partial writes", RecoveryEdited),
+    ("Validate every saved original even when its target is restored", RecoveryCorruptOriginal),
+    ("Refuse unsafe recovery targets", () => RecoveryUnsafe("target")),
+    ("Refuse duplicate recovery targets", () => RecoveryUnsafe("duplicate")),
+    ("Refuse unsafe original backup paths", () => RecoveryUnsafe("backup")),
+    ("Ignore junctioned recovery directories", RecoveryJunction),
 };
 var passed = 0;
 foreach (var test in tests)
@@ -397,6 +410,136 @@ void RollbackDependencyChanged()
     service.Rollback(receipt.ManifestPath);
     Check(File.ReadAllBytes(path).AsSpan().SequenceEqual(edited), "Later untouched dependency edits were lost.");
     before[Path.GetRelativePath(fixture.Root, path)] = Convert.ToHexString(SHA256.HashData(edited));
+    Same(before, fixture.Snapshot());
+}
+
+JsonObject ReadJournal(string path) => JsonNode.Parse(File.ReadAllBytes(path))!.AsObject();
+void RestoreJournalFile(JsonObject journal, string backup, int index)
+{
+    var file = journal["Files"]![index]!;
+    var path = file["Path"]!.GetValue<string>();
+    var saved = file["BackupFile"]?.GetValue<string>();
+    if (saved is null) File.Delete(path);
+    else File.WriteAllBytes(path, File.ReadAllBytes(Path.Combine(backup, saved)));
+}
+void RecoveryRediscovery()
+{
+    using var fixture = new Fixture(repo, "RSG");
+    var original = fixture.Snapshot();
+    var service = fixture.Service(); var plan = fixture.Plan(service); var receipt = service.Apply(plan);
+    var installed = fixture.Snapshot();
+    var journalBytes = File.ReadAllBytes(receipt.ManifestPath);
+    var recovered = fixture.Service().FindRecoveryManifest(plan.Candidate);
+    Check(recovered == receipt.ManifestPath, "A fresh service did not recover the saved rollback record.");
+    Same(installed, fixture.Snapshot());
+    Check(File.ReadAllBytes(receipt.ManifestPath).AsSpan().SequenceEqual(journalBytes), "Discovery changed the rollback record.");
+    fixture.Service().Rollback(recovered!);
+    Same(original, fixture.Snapshot());
+    Check(fixture.Service().FindRecoveryManifest(plan.Candidate) is null, "A restored record was still offered for recovery.");
+}
+void PartialRecovery(bool rollback)
+{
+    using var fixture = new Fixture(repo, "RSG");
+    var original = fixture.Snapshot();
+    var service = fixture.Service(); var plan = fixture.Plan(service); var receipt = service.Apply(plan);
+    var journal = ReadJournal(receipt.ManifestPath);
+    var entries = journal["Files"]!.AsArray();
+    for (var i = rollback ? 0 : 2; i < (rollback ? 2 : entries.Count); i++)
+        RestoreJournalFile(journal, receipt.BackupDirectory, i);
+    var partial = fixture.Snapshot();
+    Check(partial.Any(item => !original.TryGetValue(item.Key, out var hash) || hash != item.Value), "Partial recovery fixture has no installed changes.");
+    var recovered = fixture.Service().FindRecoveryManifest(plan.Candidate);
+    Check(recovered == receipt.ManifestPath, "Mixed original and installed files were not recoverable.");
+    Same(partial, fixture.Snapshot());
+    fixture.Service().Rollback(recovered!);
+    Same(original, fixture.Snapshot());
+}
+void RecoveryIgnored()
+{
+    using var fixture = new Fixture(repo, "RSG");
+    using var other = new Fixture(repo, "RSG");
+    var service = fixture.Service(); var plan = fixture.Plan(service); var receipt = service.Apply(plan);
+    var otherCandidate = other.Plan(other.Service()).Candidate;
+    Check(service.FindRecoveryManifest(otherCandidate) is null, "A different server inherited a rollback record.");
+    service.Rollback(receipt.ManifestPath);
+    Check(service.FindRecoveryManifest(plan.Candidate) is null, "An all-original journal was offered as outstanding.");
+}
+void PartialRecoveryReapply()
+{
+    using var fixture = new Fixture(repo, "RSG");
+    var service = fixture.Service(); var plan = fixture.Plan(service); var receipt = service.Apply(plan);
+    var journal = ReadJournal(receipt.ManifestPath);
+    for (var i = 2; i < journal["Files"]!.AsArray().Count; i++) RestoreJournalFile(journal, receipt.BackupDirectory, i);
+    var before = fixture.Snapshot();
+    var backups = Directory.GetFiles(fixture.Backups, "rollback.json", SearchOption.AllDirectories);
+    Refused(() => service.Apply(fixture.Plan(service)));
+    Same(before, fixture.Snapshot());
+    Check(Directory.GetFiles(fixture.Backups, "rollback.json", SearchOption.AllDirectories).SequenceEqual(backups), "Refused reinstallation created another journal.");
+}
+void RecoveryNewest()
+{
+    using var fixture = new Fixture(repo, "RSG");
+    var service = fixture.Service(); var plan = fixture.Plan(service); var receipt = service.Apply(plan);
+    var newer = Path.Combine(fixture.Backups, "newer");
+    Directory.CreateDirectory(newer);
+    foreach (var file in Directory.GetFiles(receipt.BackupDirectory)) File.Copy(file, Path.Combine(newer, Path.GetFileName(file)));
+    var newerManifest = Path.Combine(newer, "rollback.json");
+    File.SetLastWriteTimeUtc(receipt.ManifestPath, DateTime.UtcNow.AddMinutes(-2));
+    File.SetLastWriteTimeUtc(newerManifest, DateTime.UtcNow.AddMinutes(-1));
+    var malformed = Path.Combine(fixture.Backups, "malformed"); Directory.CreateDirectory(malformed);
+    File.WriteAllText(Path.Combine(malformed, "rollback.json"), "{\"Format\":1,\"Candidate\":null,\"Files\":null}");
+    var nested = Path.Combine(fixture.Backups, "container", "nested"); Directory.CreateDirectory(nested);
+    foreach (var file in Directory.GetFiles(receipt.BackupDirectory)) File.Copy(file, Path.Combine(nested, Path.GetFileName(file)));
+    Check(service.FindRecoveryManifest(plan.Candidate) == newerManifest, "Discovery did not choose the newest valid direct record.");
+}
+void RecoveryEdited()
+{
+    using var fixture = new Fixture(repo, "RSG");
+    var service = fixture.Service(); var plan = fixture.Plan(service); var receipt = service.Apply(plan);
+    var journal = ReadJournal(receipt.ManifestPath);
+    var lastPath = journal["Files"]!.AsArray()[^1]!["Path"]!.GetValue<string>();
+    File.AppendAllText(lastPath, "\n# later user edit\n");
+    var edited = fixture.Snapshot();
+    Check(service.FindRecoveryManifest(plan.Candidate) is null, "An edited installation was offered as safely recoverable.");
+    Refused(() => service.Rollback(receipt.ManifestPath));
+    Same(edited, fixture.Snapshot());
+}
+void RecoveryCorruptOriginal()
+{
+    using var fixture = new Fixture(repo, "RSG");
+    var service = fixture.Service(); var plan = fixture.Plan(service); var receipt = service.Apply(plan);
+    var journal = ReadJournal(receipt.ManifestPath);
+    RestoreJournalFile(journal, receipt.BackupDirectory, 0);
+    var saved = journal["Files"]![0]!["BackupFile"]!.GetValue<string>();
+    File.WriteAllText(Path.Combine(receipt.BackupDirectory, saved), "corrupt original");
+    var before = fixture.Snapshot();
+    Check(service.FindRecoveryManifest(plan.Candidate) is null, "A corrupt saved original was offered as recoverable.");
+    Refused(() => service.Rollback(receipt.ManifestPath));
+    Same(before, fixture.Snapshot());
+}
+void RecoveryUnsafe(string kind)
+{
+    using var fixture = new Fixture(repo, "RSG");
+    var service = fixture.Service(); var plan = fixture.Plan(service); var receipt = service.Apply(plan);
+    var journal = ReadJournal(receipt.ManifestPath);
+    var entries = journal["Files"]!.AsArray();
+    if (kind == "target") entries[0]!["Path"] = Path.Combine(fixture.Backups, "outside.txt");
+    else if (kind == "backup") entries[0]!["BackupFile"] = "../outside.before";
+    else entries.Add(entries[0]!.DeepClone());
+    File.WriteAllText(receipt.ManifestPath, journal.ToJsonString());
+    var before = fixture.Snapshot();
+    Check(service.FindRecoveryManifest(plan.Candidate) is null, "An unsafe journal was offered as recoverable.");
+    Refused(() => service.Rollback(receipt.ManifestPath));
+    Same(before, fixture.Snapshot());
+}
+void RecoveryJunction()
+{
+    using var fixture = new Fixture(repo, "RSG");
+    var service = fixture.Service(); var plan = fixture.Plan(service); var receipt = service.Apply(plan);
+    fixture.Junction(receipt.BackupDirectory, true);
+    var before = fixture.Snapshot();
+    Check(service.FindRecoveryManifest(plan.Candidate) is null, "A junctioned backup directory was followed.");
+    Refused(() => service.Rollback(receipt.ManifestPath));
     Same(before, fixture.Snapshot());
 }
 

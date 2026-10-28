@@ -10,7 +10,7 @@ Do not put `cl2` in the folder name. Cfx treats it as a launch flag.
 
 ## Set up the server
 
-Stop your local server. Open **Server setup**, choose its folder and click **Set up local testing**. The launcher checks the framework files and backs them up before making changes. See [supported versions](frameworks.md).
+Stop your local server. Open **Server setup**, choose its folder and click **Set up local testing**. The launcher checks the framework files and backs them up before making changes. See [VORP and RSG setup](frameworks.md).
 
 Start the server through your usual manager, or select `FXServer.exe` to use **Start server** in the launcher.
 
@@ -42,4 +42,4 @@ Use **Installation → Open local settings folder** to open `%LOCALAPPDATA%/Mund
 - `GraphicsBackup` holds the original graphics file and recovery record.
 - `ServerBackups` holds the files changed by server setup.
 
-To remove setup, close both clients, stop the server and use **Server setup → Remove setup**. Your test characters stay in the database. Later edits to patched files must be reviewed before rollback.
+To remove setup, close both clients, stop the server and use **Server setup → Remove setup**. Your test characters stay in the database. The launcher finds saved backups when you select the server, including after an interrupted setup. Later edits to patched files must be reviewed before rollback.

@@ -37,13 +37,11 @@ You need Windows x64, RDR2, a working RedM login and a local server with two fre
 
 The Windows download runs without installing .NET or Python. Connections stay on your PC, so you do not need port forwarding.
 
-Setup checks your framework files before changing them. It supports the [listed VORP and RSG builds](docs/frameworks.md) and refuses files it does not recognize.
+Setup checks your framework files before changing them. See [VORP and RSG setup](docs/frameworks.md).
 
 ## Help
 
 Check [troubleshooting](docs/troubleshooting.md), or ask in [Discord](https://discord.gg/Nng77jKReK). Send the launcher message and your framework versions. Remove passwords and keys before sharing configs or logs.
-
-More scripts: [mundis.tebex.io](https://mundis.tebex.io).
 
 ## Build and test
 
